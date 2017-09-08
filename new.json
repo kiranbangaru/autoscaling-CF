@@ -1,0 +1,135 @@
+{
+  "AWSTemplateFormatVersion": "2010-09-09",
+
+  "Description": "LBnAS",
+  "Resources": {
+     
+        "elbsgp" : {
+        "Type" : "AWS::EC2::SecurityGroup",
+        "Properties": {
+          "VpcId":"vpc-2f2fdb49" ,
+          "GroupDescription": "auto",
+          "SecurityGroupIngress": [{
+            "CidrIp": "0.0.0.0/0",
+            "FromPort": 22,
+            "IpProtocol": "tcp",
+            "ToPort": 22
+          }]
+        }
+      },
+      
+      "httpsgp" : {
+        "Type" : "AWS::EC2::SecurityGroup",
+        "Properties" : {
+          "GroupDescription" : "httpport",
+          "SecurityGroupIngress" : [ {
+            "CidrIp": "0.0.0.0/0",
+            "FromPort": 80,
+            "IpProtocol": "tcp",
+            "ToPort": 80
+          } ],
+          "VpcId" : "vpc-2f2fdb49"
+                  }
+      },
+      
+      
+      "loadbalance": {
+         "Type": "AWS::ElasticLoadBalancing::LoadBalancer",
+         "Properties": {
+            "LoadBalancerName" : "ELBCFtest",
+            "SecurityGroups" : [ { "Ref" : "httpsgp" } ],
+            "AvailabilityZones": { "Fn::GetAZs": "" },
+           "Listeners": [ {
+             "LoadBalancerPort" : "80",
+               "InstancePort" : "80",
+               "Protocol" : "HTTP"
+            } ],
+            "ConnectionDrainingPolicy" : {
+                 "Enabled" : "true",
+                "Timeout" : "60"
+            },
+            "CrossZone" : "true",
+            "HealthCheck" : {
+                  "Target" : "HTTP:80/" ,
+                  "HealthyThreshold" : "3",
+                  "UnhealthyThreshold" : "5",
+                  "Interval" : "30",
+                  "Timeout" : "5"
+            }
+                        
+          }
+      },
+      
+      
+      "launchConfig": {
+          "Type" : "AWS::AutoScaling::LaunchConfiguration",
+          "Properties" : {
+              "ImageId" : "ami-2cb24454",
+              "InstanceType" : "t2.micro",
+              "KeyName" : "keypair",
+              "SecurityGroups" : 
+            [{ "Ref": "httpsgp" }]
+              
+             
+          }
+          
+          
+      },
+
+      
+      "auto" : {
+          "Type" : "AWS::AutoScaling::AutoScalingGroup",
+          "Properties" : {
+              "AvailabilityZones" : { "Fn::GetAZs": "" },
+              "LaunchConfigurationName" : 
+              { "Ref": "launchConfig" },
+              "DesiredCapacity": 1,
+              "MaxSize" : "3",
+              "MinSize" : "1",
+              "LoadBalancerNames" : [ { "Ref" : "loadbalance" } ],
+              "MetricsCollection": [
+                {
+                   "Granularity": "1Minute",
+                   "Metrics": [
+                      "GroupMinSize",
+                      "GroupMaxSize"
+                   ]
+       
+          }]
+      }
+           
+       },
+       "SimpleScaling" : {
+        "Type" : "AWS::AutoScaling::ScalingPolicy",
+        "Properties" : {
+          "AdjustmentType" : "ChangeInCapacity",
+          "PolicyType" : "SimpleScaling",	
+          "Cooldown" : "60",
+          "AutoScalingGroupName" : { "Ref" : "auto" },
+          "ScalingAdjustment" : 1
+        }
+      },
+      "cloudWatchAlarm": {
+        "Type": "AWS::CloudWatch::Alarm",
+        "Properties": {
+           "MetricName": "CPUUTILIZATION",
+           "Namespace": 
+           { "Ref": "SimpleScaling" }
+           ,
+           "ComparisonOperator": "GreaterThanThreshold",
+           "EvaluationPeriods": "3",
+           "Period": "60",
+           "Statistic": "Maximum",
+           "Threshold": "50",
+           "ActionsEnabled": "true",
+           "AlarmDescription": "CPU alarm for my instance",
+           "AlarmName": "autoscaling"
+        }
+     }
+      }
+    }
+  
+       
+      
+  
+

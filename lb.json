@@ -1,0 +1,43 @@
+{
+    "AWSTemplateFormatVersion": "2010-09-09",
+
+    "Description": "LBnAS",
+    "Resources": {
+        "loadbalance": {
+           "Type": "AWS::ElasticLoadBalancing::LoadBalancer",
+           "Properties": {
+             "Subnets" : "subnet-5c9d3b07,sg-eaff1b90",
+              "LoadBalancerName" : "ELB_CF",
+                "SecurityGroups" : "sg-eaff1b90",
+                "Scheme" : "internal",
+                "listeners": [ {
+                 "LoadBalancerPort" : "80",
+                 "InstancePort" : "80",
+                 "Protocol" : "HTTP"
+                } ],
+                "ConnectionDrainingPolicy" : {
+                   "Enabled" : "true",
+                  "Timeout" : "60"
+                },
+                "CrossZone" : "true",
+                "HealthCheck" : {
+                    "Target" : "HTTP:80/" ,
+                    "HealthyThreshold" : "3",
+                    "UnhealthyThreshold" : "5",
+                    "Interval" : "30",
+                    "Timeout" : "5"
+                }
+                
+            }
+        },
+        "launchconfig": {
+            "Type" : "AWS::AutoScaling::LaunchConfiguration",
+            "Properties" : { 
+                "ImageId" : "ami-2cb24454",
+                "InstanceType" : "t2.micro",
+                "KeyName" : "keypair.pem",
+                "SecurityGroups" : "sg-eaff1b90" 
+                }
+            }
+    }
+}
